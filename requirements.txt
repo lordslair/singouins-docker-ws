@@ -1,0 +1,3 @@
+redis                     ~= 3.5
+websockets                == 8.1
+yarqueue                  == 0.4.1
