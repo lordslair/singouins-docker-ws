@@ -3,6 +3,7 @@
 # Inspired from https://github.com/aaugustin/websockets/issues/653
 
 import asyncio
+import json
 import os
 import time
 import websockets
@@ -31,9 +32,9 @@ try:
               db       = REDIS_DB_NAME,
               encoding = 'utf-8')
 except:
-    print(f'{mynow()} [core] Connection to redis [✗]')
+    print(f'{mynow()} [core] Connection to redis:{REDIS_DB_NAME} [✗]')
 else:
-    print(f'{mynow()} [core] Connection to redis [✓]')
+    print(f'{mynow()} [core] Connection to redis:{REDIS_DB_NAME} [✓]')
 
 # Opening Queue
 try:
@@ -58,17 +59,39 @@ async def broadcast():
         await asyncio.sleep(REDIS_SLEEP)
 
 async def handler(websocket, path):
+    # When client connects
     CLIENTS.add(websocket)
-    print(f'{mynow()} [core] Client connected')
-    print(f'{websocket.remote_address}')
+    realip = websocket.request_headers['X-Real-IP']
+    print(f'{mynow()} [core] Client connected ({realip})')
+
+    # Storing in redis client connlog
     try:
+        rkey   = f'wsclient:{realip}'
+        rvalue = json.dumps({"ip": realip, "date": mynow()})
+        r.set(rkey, rvalue)
+    except:
+        print(f'{mynow()} [core] Client logged ({realip}) [✗]')
+    else:
+        print(f'{mynow()} [core] Client logged ({realip}) [✓]')
+
+    # Main loop
+    try:
+        # Receiving messages
         async for msg in websocket:
+            # Queuing them
             yqueue.put(msg)
     except websockets.ConnectionClosedError:
         print(f'{mynow()} [core] Connection closed')
     finally:
+        # At the end, we remove the connection
         CLIENTS.remove(websocket)
-        print(f'{mynow()} [core] Client removed')
+        # We delete in redis client connlog
+        try:
+            r.delete(f'wsclient-{realip}')
+        except:
+            print(f'{mynow()} [core] Client removed ({realip}) [✗]')
+        else:
+            print(f'{mynow()} [core] Client removed ({realip}) [✓]')
 
 loop = asyncio.get_event_loop()
 loop.create_task(broadcast())
@@ -86,4 +109,15 @@ try:
     loop.run_until_complete(start_server)
     loop.run_forever()
 except KeyboardInterrupt:
-    print(f'{mynow()} [core] Exiting')
+    try:
+        # We scan to find the connected clients
+        for key in r.scan_iter("wsclient:*"):
+            # We loop to delete all the redis entries
+            r.delete(key)
+    except:
+        print(f'{mynow()} [core] Cleaned wsclients in redis [✗]')
+    else:
+        print(f'{mynow()} [core] Cleaned wsclients in redis [✓]')
+    finally:
+        # We can proprerly exit now
+        print(f'{mynow()} [core] Exiting')
