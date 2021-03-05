@@ -87,7 +87,7 @@ async def handler(websocket, path):
         CLIENTS.remove(websocket)
         # We delete in redis client connlog
         try:
-            r.delete(f'wsclient-{realip}')
+            r.delete(f'wsclient:{realip}')
         except:
             print(f'{mynow()} [core] Client removed ({realip}) [✗]')
         else:
