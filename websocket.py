@@ -81,17 +81,17 @@ async def handler(websocket, path):
             # Queuing them
             yqueue.put(msg)
     except websockets.ConnectionClosedError:
-        print(f'{mynow()} [core] Connection closed')
+        print(f'{mynow()} [core] Client lost      (@nanotime:{nanotime}) [✗]')
     finally:
         # At the end, we remove the connection
         CLIENTS.remove(websocket)
         # We delete in redis client connlog
         try:
-            r.delete(f'wsclient:{realip}')
+            r.delete(f'wsclient:{nanotime}')
         except:
-            print(f'{mynow()} [core] Client removed ({realip}) [✗]')
+            print(f'{mynow()} [core] Client removed   (@nanotime:{nanotime}) [✗]')
         else:
-            print(f'{mynow()} [core] Client removed ({realip}) [✓]')
+            print(f'{mynow()} [core] Client removed   (@nanotime:{nanotime}) [✓]')
 
 loop = asyncio.get_event_loop()
 loop.create_task(broadcast())
