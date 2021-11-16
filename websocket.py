@@ -19,7 +19,7 @@ def mynow(): return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 REDIS_HOST    = os.environ['SEP_BACKEND_REDIS_SVC_SERVICE_HOST']
 REDIS_PORT    = os.environ['SEP_BACKEND_REDIS_SVC_SERVICE_PORT']
 REDIS_DB_NAME = os.environ['SEP_REDIS_DB']
-REDIS_SLEEP   = int(os.environ['SEP_REDIS_SLEEP']) # We receive k8s env as strings
+REDIS_SLEEP   = float(os.environ['SEP_REDIS_SLEEP']) # We receive env as strings
 
 # WebSocket variables
 WSS_HOST      = os.environ['SEP_WSS_HOST']
