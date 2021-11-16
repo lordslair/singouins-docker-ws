@@ -61,18 +61,18 @@ async def broadcast():
 async def handler(websocket, path):
     # When client connects
     CLIENTS.add(websocket)
-    realip = websocket.request_headers['X-Real-IP']
-    print(f'{mynow()} [core] Client connected ({realip})')
+    nanotime = time.time_ns()
+    print(f'{mynow()} [core] Client connected (@nanotime:{nanotime}) [✓]')
 
     # Storing in redis client connlog
     try:
-        rkey   = f'wsclient:{realip}'
-        rvalue = json.dumps({"ip": realip, "date": mynow()})
+        rkey   = f'wsclient:{nanotime}'
+        rvalue = json.dumps({"nanotime": nanotime, "date": mynow()})
         r.set(rkey, rvalue)
     except:
-        print(f'{mynow()} [core] Client logged ({realip}) [✗]')
+        print(f'{mynow()} [core] Client logged    (@nanotime:{nanotime}) [✗]')
     else:
-        print(f'{mynow()} [core] Client logged ({realip}) [✓]')
+        print(f'{mynow()} [core] Client logged    (@nanotime:{nanotime}) [✓]')
 
     # Main loop
     try:
