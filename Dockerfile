@@ -1,6 +1,9 @@
 FROM alpine:3.15
 MAINTAINER @Lordslair
 
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
 COPY requirements.txt /requirements.txt
 COPY websocket.py     /websocket.py
 
