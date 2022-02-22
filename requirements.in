@@ -1,2 +1,2 @@
-websockets ~= 8.1
+websockets ~= 10.2
 yarqueue   == 0.4.1
