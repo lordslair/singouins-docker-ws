@@ -23,6 +23,7 @@ REDIS_SLEEP   = float(os.environ['SEP_REDIS_SLEEP']) # We receive env as strings
 # WebSocket variables
 WSS_HOST      = os.environ['SEP_WSS_HOST']
 WSS_PORT      = os.environ['SEP_WSS_PORT']
+WSS_QUEUE     = os.environ['SEP_WSS_QUEUE']
 
 # Opening Redis connection
 try:
@@ -39,12 +40,11 @@ else:
 
 # Opening Queue
 try:
-    yqueue_name = 'broadcast'
-    yqueue      = yarqueue.Queue(name=yqueue_name, redis=r)
+    yqueue      = yarqueue.Queue(name=WSS_QUEUE, redis=r)
 except:
-    logger.error(f'[DB:{REDIS_DB}][core] [✗] Connection to yarqueue:{yqueue_name}')
+    logger.error(f'[DB:{REDIS_DB}][core] [✗] Connection to Queue {WSS_QUEUE}')
 else:
-    logger.info(f'[DB:{REDIS_DB}][core] [✓] Connection to yarqueue:{yqueue_name}')
+    logger.info(f'[DB:{REDIS_DB}][core] [✓] Connection to Queue {WSS_QUEUE}')
 
 CLIENTS = set()
 
@@ -52,7 +52,7 @@ async def broadcast():
     while True:
         if not yqueue.empty():
             data = yqueue.get()
-            logger.debug(f'[q:broadcast] Consumer got from redis:<{data}>')
+            logger.debug(f'[Q:{WSS_QUEUE}] Consumer got from redis:<{data}>')
             await asyncio.gather(
             *[ws.send(data) for ws in CLIENTS],
             return_exceptions=False,)
