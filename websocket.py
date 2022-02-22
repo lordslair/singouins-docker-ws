@@ -30,7 +30,6 @@ try:
               port                   = REDIS_PORT,
               db                     = REDIS_DB,
               encoding               = 'utf-8',
-              decode_responses       = True,
               socket_connect_timeout = 1)
 except (exceptions.ConnectionError,
         exceptions.BusyLoadingError):
