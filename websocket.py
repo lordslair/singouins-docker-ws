@@ -3,22 +3,21 @@
 # Inspired from https://github.com/aaugustin/websockets/issues/653
 
 import asyncio
-import json
 import os
 import time
 import websockets
 import yarqueue
 
+from loguru             import logger
 from redis              import Redis
-from datetime           import datetime
 
-# Shorted definition for actual now() with proper format
-def mynow(): return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+# Log System imports
+logger.info('[DB:*][core] [✓] System imports')
 
 # Redis variables
 REDIS_HOST    = os.environ['SEP_BACKEND_REDIS_SVC_SERVICE_HOST']
 REDIS_PORT    = os.environ['SEP_BACKEND_REDIS_SVC_SERVICE_PORT']
-REDIS_DB_NAME = os.environ['SEP_REDIS_DB']
+REDIS_DB      = os.environ['SEP_REDIS_DB']
 REDIS_SLEEP   = float(os.environ['SEP_REDIS_SLEEP']) # We receive env as strings
 
 # WebSocket variables
@@ -27,23 +26,26 @@ WSS_PORT      = os.environ['SEP_WSS_PORT']
 
 # Opening Redis connection
 try:
-    r = Redis(host     = REDIS_HOST,
-              port     = REDIS_PORT,
-              db       = REDIS_DB_NAME,
-              encoding = 'utf-8')
-except:
-    print(f'{mynow()} [core] Connection to redis:{REDIS_DB_NAME} [✗]')
+    r = Redis(host                   = REDIS_HOST,
+              port                   = REDIS_PORT,
+              db                     = REDIS_DB,
+              encoding               = 'utf-8',
+              decode_responses       = True,
+              socket_connect_timeout = 1)
+except (exceptions.ConnectionError,
+        exceptions.BusyLoadingError):
+    logger.error(f'[DB:{REDIS_DB}][core] [✗] Connection to redis:{REDIS_DB}')
 else:
-    print(f'{mynow()} [core] Connection to redis:{REDIS_DB_NAME} [✓]')
+    logger.info(f'[DB:{REDIS_DB}][core] [✓] Connection to redis:{REDIS_DB}')
 
 # Opening Queue
 try:
     yqueue_name = 'broadcast'
     yqueue      = yarqueue.Queue(name=yqueue_name, redis=r)
 except:
-    print(f'{mynow()} [core] Connection to yarqueue:{yqueue_name} [✗]')
+    logger.error(f'[DB:{REDIS_DB}][core] [✗] Connection to yarqueue:{yqueue_name}')
 else:
-    print(f'{mynow()} [core] Connection to yarqueue:{yqueue_name} [✓]')
+    logger.info(f'[DB:{REDIS_DB}][core] [✓] Connection to yarqueue:{yqueue_name}')
 
 CLIENTS = set()
 
@@ -51,7 +53,7 @@ async def broadcast():
     while True:
         if not yqueue.empty():
             data = yqueue.get()
-            print(f'{mynow()} [q:broadcast] Consumer got from redis:<{data}>')
+            logger.debug(f'[q:broadcast] Consumer got from redis:<{data}>')
             await asyncio.gather(
             *[ws.send(data) for ws in CLIENTS],
             return_exceptions=False,)
@@ -62,17 +64,16 @@ async def handler(websocket, path):
     # When client connects
     CLIENTS.add(websocket)
     nanotime = time.time_ns()
-    print(f'{mynow()} [core] Client connected (@nanotime:{nanotime}) [✓]')
+    logger.info(f'[loop] [✓] Client connected (@nanotime:{nanotime})')
 
     # Storing in redis client connlog
     try:
         rkey   = f'wsclient:{nanotime}'
-        rvalue = json.dumps({"nanotime": nanotime, "date": mynow()})
-        r.set(rkey, rvalue)
+        r.set(rkey, '0')
     except:
-        print(f'{mynow()} [core] Client logged    (@nanotime:{nanotime}) [✗]')
+        logger.error(f'[loop] [✗] Client logged    (@nanotime:{nanotime})')
     else:
-        print(f'{mynow()} [core] Client logged    (@nanotime:{nanotime}) [✓]')
+        logger.info(f'[loop] [✓] Client logged    (@nanotime:{nanotime})')
 
     # Main loop
     try:
@@ -81,7 +82,7 @@ async def handler(websocket, path):
             # Queuing them
             yqueue.put(msg)
     except websockets.ConnectionClosedError:
-        print(f'{mynow()} [core] Client lost      (@nanotime:{nanotime}) [✗]')
+        logger.warning(f'[loop] [✗] Client lost      (@nanotime:{nanotime})')
     finally:
         # At the end, we remove the connection
         CLIENTS.remove(websocket)
@@ -89,9 +90,9 @@ async def handler(websocket, path):
         try:
             r.delete(f'wsclient:{nanotime}')
         except:
-            print(f'{mynow()} [core] Client removed   (@nanotime:{nanotime}) [✗]')
+            logger.error(f'[loop] [✗] Client removed   (@nanotime:{nanotime})')
         else:
-            print(f'{mynow()} [core] Client removed   (@nanotime:{nanotime}) [✓]')
+            logger.info(f'[loop] [✓] Client removed   (@nanotime:{nanotime})')
 
 loop = asyncio.get_event_loop()
 loop.create_task(broadcast())
@@ -100,9 +101,9 @@ loop.create_task(broadcast())
 try:
     start_server = websockets.serve(handler, WSS_HOST, WSS_PORT)
 except:
-    print(f'{mynow()} [core] Starting websocket [✗]')
+    logger.error(f'[core] [✗] Starting websocket')
 else:
-    print(f'{mynow()} [core] Starting websocket [✓]')
+    logger.info(f'[core] [✓] Starting websocket')
 
 # Looping to daemonize the Queue
 try:
@@ -115,9 +116,9 @@ except KeyboardInterrupt:
             # We loop to delete all the redis entries
             r.delete(key)
     except:
-        print(f'{mynow()} [core] Cleaned wsclients in redis [✗]')
+        logger.error(f'[core] [✗] Cleaned wsclients in redis')
     else:
-        print(f'{mynow()} [core] Cleaned wsclients in redis [✓]')
+        logger.info(f'[core] [✓] Cleaned wsclients in redis')
     finally:
         # We can proprerly exit now
-        print(f'{mynow()} [core] Exiting')
+        logger.info(f'[core] [✓] Exiting')
